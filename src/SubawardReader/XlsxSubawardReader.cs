@@ -1,11 +1,10 @@
 using System.Globalization;
 using System.IO.Compression;
-using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace SubawardReader;
 
-public sealed partial class XlsxSubawardReader
+public sealed class XlsxSubawardReader
 {
     private static readonly XNamespace SpreadsheetNamespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 
@@ -13,6 +12,8 @@ public sealed partial class XlsxSubawardReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
+        // An xlsx file is really a zip file with XML files inside it.
+        // I read those XML files directly so the console app does not need an Excel package.
         using var archive = ZipFile.OpenRead(path);
         var sharedStrings = ReadSharedStrings(archive);
         var subawards = new List<SubawardEntry>();
@@ -40,6 +41,9 @@ public sealed partial class XlsxSubawardReader
 
         var totalColumn = FindTotalColumn(rows);
         var section = FindOtherDirectCostsSection(rows);
+
+        // The prompt says the subaward rows are under "G. Other Direct Costs".
+        // If that section is not found, I still scan the sheet so the app gives a useful result.
         var scanRows = section is null
             ? rows
             : rows.Where(row => row.RowNumber > section.Value.StartRow && row.RowNumber < section.Value.EndRow).ToArray();
@@ -164,7 +168,7 @@ public sealed partial class XlsxSubawardReader
         return cells
             .Skip(labelIndex + 1)
             .Select(cell => cell.Text.Trim())
-            .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text) && !DecimalPattern().IsMatch(text)) ?? string.Empty;
+            .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text) && !TryParseDecimal(text, out _)) ?? string.Empty;
     }
 
     private static decimal ReadAmount(WorksheetRow row, int? totalColumn)
@@ -209,9 +213,6 @@ public sealed partial class XlsxSubawardReader
 
         return columnNumber;
     }
-
-    [GeneratedRegex(@"^-?\d+(\.\d+)?([Ee][+-]?\d+)?$")]
-    private static partial Regex DecimalPattern();
 
     private sealed record WorksheetRow(int RowNumber, IReadOnlyList<WorksheetCell> Cells);
 

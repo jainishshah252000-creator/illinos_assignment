@@ -1,6 +1,8 @@
 # Subaward Reader
 
-Small .NET console application for the Sponsored Programs Administration programming exercise. It reads SPA-style Excel budget workbooks from a folder, reports subaward recipients under `G. Other Direct Costs`, and totals each distinct subrecipient across all files.
+This is my .NET console application for the Sponsored Programs Administration programming exercise.
+
+The app reads the Excel budget files from a folder, finds the subawards listed under `G. Other Direct Costs`, prints the subrecipient names for each file, and then prints the total amount for each subrecipient across all files.
 
 ## Requirements
 
@@ -14,7 +16,9 @@ From the repository root:
 dotnet run --project src/SubawardReader -- .
 ```
 
-The `.` argument tells the app to read the Excel files in the repository root. You can also pass another folder containing workbooks in the same format:
+The `.` at the end means "use the current folder". Since the three example spreadsheets are in the repository root, this command will read those files.
+
+You can also pass another folder if the spreadsheets are somewhere else:
 
 ```bash
 dotnet run --project src/SubawardReader -- /path/to/budget/files
@@ -58,17 +62,18 @@ dotnet test
 
 The unit test confirms `SubawardBudgetExample1.xlsx` contains exactly 4 subrecipients: `Indiana`, `Mayo`, `Purdue`, and `Florida`.
 
-## Approach
+## How I Approached It
 
-- Reads every `.xlsx` file in the requested folder, skipping temporary Excel lock files that start with `~$`.
-- Uses the Open XML files inside each workbook directly with built-in .NET ZIP and XML APIs, so the app has no runtime package dependency for Excel parsing.
-- Looks for rows in the `G. Other Direct Costs` section whose label starts with `Subaward:`.
-- Supports both observed recipient formats:
+- I read every `.xlsx` file in the selected folder.
+- I skip temporary Excel files that start with `~$`.
+- I read the `.xlsx` file as a zip file because Excel stores worksheet data as XML inside the workbook.
+- I look for the `G. Other Direct Costs` section.
+- Inside that section, I look for rows starting with `Subaward:`.
+- The spreadsheets had two formats, so I handled both:
   - `Subaward: Mayo`
   - `Subaward:` with the recipient name in the next populated cell to the right.
-- Uses the worksheet column headed `Total` as the subaward amount. If no `Total` column is found, it falls back to the last numeric value on that subaward row.
-- Outputs per-file recipients and a distinct cross-file total grouped by recipient name.
-- Keeps the console output simple so non-technical staff can read file-level results and overall totals without inspecting the spreadsheet formulas.
+- I use the row's `Total` column as the amount.
+- At the end, I group the same recipient names together and add their amounts.
 
 ## Assumptions
 
@@ -91,12 +96,12 @@ The unit test confirms `SubawardBudgetExample1.xlsx` contains exactly 4 subrecip
 
 ### Working with non-technical stakeholders
 
-When I work with non-technical stakeholders on a data-driven application, I try to start with the decision they need to make rather than the fields or screens they think they need. For example, on a reporting workflow I would ask what question the report must answer, who uses it, what they do after reading it, and what examples represent correct and incorrect output.
+When I work with non-technical stakeholders on a data-driven application, I try to start by understanding the actual decision or task they need help with. I would ask what question the report or application needs to answer, who will use it, and what they will do after they see the result.
 
-To make sure I understand the need, I turn the conversation into concrete examples: sample inputs, expected outputs, edge cases, and a short acceptance checklist. If requirements change, I separate the underlying business rule from the implementation detail, confirm the impact in plain language, and update the acceptance examples before changing code. That keeps misunderstandings visible early, when they are cheaper to correct.
+To make sure I understood correctly, I would ask for sample files, expected output, and examples of cases that should not be included. If there was a misunderstanding or the requirement changed, I would confirm the new rule in plain language before changing the code. That helps keep the work connected to the user's real need instead of only matching a technical assumption.
 
 ### Communicating technical issues
 
-When explaining a technical limitation to non-technical users, I avoid leading with implementation details. I explain what is happening, how it affects their work, what options exist, and what I recommend.
+When explaining a technical issue to non-technical users, I try to avoid starting with implementation details. I explain what is happening, how it affects their work, and what options we have.
 
-For example, if an import process cannot reliably match organizations because the source data uses inconsistent names, I would say: "The file has enough variation that automatic matching will produce some wrong results. We can either require a unique organization ID, add a review step for uncertain matches, or accept a higher error rate. I recommend adding the review step first because it protects the data while we learn how common the issue is." That gives users a decision they can evaluate without needing to understand the matching algorithm.
+For example, if an import process could not reliably match organizations because the names were inconsistent, I would explain that some records may match incorrectly unless we add a stronger identifier or a review step. I would recommend the review step first if the data is important, because it protects the users from incorrect results while still allowing the work to move forward.
